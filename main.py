@@ -14,12 +14,15 @@ class DockerGUIApp(QMainWindow):
         layout = QVBoxLayout()
 
         self.address_input = QLineEdit()
+        self.address_input.setPlaceholderText("Enter server address")
         layout.addWidget(self.address_input)
 
         self.username_input = QLineEdit()
+        self.username_input.setPlaceholderText("Enter username")
         layout.addWidget(self.username_input)
 
         self.password_input = QLineEdit()
+        self.password_input.setPlaceholderText("Enter password")
         layout.addWidget(self.password_input)
 
         self.connect_button = QPushButton("Connect")
@@ -40,6 +43,7 @@ class DockerGUIApp(QMainWindow):
         # Add the layout to the central widget
         central_widget.setLayout(layout)
 
+    # rest of the code...
     def connect_to_multidocker(self):
         address = self.address_input.text()
         username = self.username_input.text()
@@ -47,7 +51,7 @@ class DockerGUIApp(QMainWindow):
 
         # Connect to the server using Fabric
         self.conn = Connection(host=address, user=username, connect_kwargs={"password": password})
-        self.conn.connect()
+        self.conn.run()
 
     def list_docker_containers(self):
         # Run the "docker ps" command
@@ -95,3 +99,4 @@ if __name__ == "__main__":
     window = DockerGUIApp()
     window.show()
     sys.exit(app.exec_())
+
