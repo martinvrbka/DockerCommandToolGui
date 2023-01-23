@@ -1,10 +1,12 @@
 from fabric import Connection
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QListWidget, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QListWidget, QVBoxLayout, QWidget, QLabel
 import sys
+
 
 class DockerGUIApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.conn = None
         self.setWindowTitle("Docker GUI")
 
         # Create a central widget and set it
@@ -36,7 +38,7 @@ class DockerGUIApp(QMainWindow):
 
         self.confirm_button = QPushButton("Confirm")
         self.confirm_button.clicked.connect(self.enable_container_buttons)
-        self.confirm_button.setEnabled(False) # disable button until container number is entered
+        self.confirm_button.setEnabled(False)  # disable button until container number is entered
         layout.addWidget(self.confirm_button)
 
         self.start_button = QPushButton("Start")
@@ -62,30 +64,60 @@ class DockerGUIApp(QMainWindow):
         self.container_list = QListWidget()
         layout.addWidget(self.container_list)
 
+        # Create processing message
+        self.processing_message = QLabel("Processing command...")
+        self.processing_message.setVisible(False)
+        layout.addWidget(self.processing_message)
+
         # Add the layout to the central widget
         central_widget.setLayout(layout)
 
     def connect_to_multidocker(self):
-        address = self.address_input.text()
-        username = self.username_input.text()
-        password = self.password_input.text()
+        try:
+            address = self.address_input.text()
+            username = self.username_input.text()
+            password = self.password_input.text()
 
-        # Connect to the server using Fabric
-        self.conn = Connection(host=address, user=username, connect_kwargs={"password": password})
-        self.conn.run("")
+            if not address or not username or not password:
+                raise ValueError("All fields must be filled")
 
-        # Run the "docker ps" command to list available containers
-        result = self.conn.run("docker ps --format '{{.ID}} {{.Names}}'")
-        # Split the output by newline and remove the last element
-        container_list = result.stdout.split("\n")[:-1]
+            # Connect to the server using Fabric
+            self.conn = Connection(host=address, user=username, connect_kwargs={"password": password})
+            self.conn.run("")
 
-        # Clear the container list widget and add the containers with number
-        self.container_list.clear()
-        for i, container in enumerate(container_list):
-            self.container_list.addItem(f"{i+1}. {container}")
+            # Run the "docker ps" command to list available containers
+            result = self.conn.run("docker ps --format '{{.ID}} {{.Names}}'")
+            # Split the output by newline and remove the last element
+            container_list = result.stdout.split("\n")[:-1]
 
-        self.container_input.setEnabled(True)  # enable container input field
-        self.container_input.textChanged.connect(self.enable_confirm_button)
+            # Clear the container list widget and add the containers with number
+            self.container_list.clear()
+            for i, container in enumerate(container_list):
+                self.container_list.addItem(f"{i + 1}. {container}")
+
+            self.container_input.setEnabled(True)  # enable container input field
+            self.container_input.textChanged.connect(self.enable_confirm_button)
+
+        except ValueError as e:
+            self.container_list.addItem(str(e))
+        except Exception as e:
+            self.container_list.addItem(str(e))
+
+
+    def confirm_container(self):
+        container_number = self.container_input.text()
+        try:
+            if int(container_number) > self.container_list.count() or int(container_number) <= 0:
+                raise ValueError("Invalid container number")
+            self.logs_button.setEnabled(True)
+            self.start_button.setEnabled(True)
+            self.stop_button.setEnabled(True)
+            self.restart_button.setEnabled(True)
+            self.container_list.addItem("Container confirmed")
+        except ValueError as e:
+            self.container_list.addItem(str(e))
+        except Exception as e:
+            self.container_list.addItem(str(e))
 
     def enable_confirm_button(self):
         if self.container_input.text().strip() != "":
@@ -104,28 +136,48 @@ class DockerGUIApp(QMainWindow):
         self.logs_button.setEnabled(True)
 
     def start_container(self):
+        self.processing_message.setVisible(True)
         container_number = self.container_input.text()
-        container = self.container_list.item(int(container_number) - 1).text().split()[1]
-        self.conn.run(f"docker start {container}")
-
+        selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
+        result = self.conn.run(f"docker start {selected_container}")
+        self.container_list.addItem(result.stdout)
+        self.processing_message.setVisible(False)
 
     def stop_container(self):
+        self.processing_message.setVisible(True)
         container_number = self.container_input.text()
-        container = self.container_list.item(int(container_number) - 1).text().split()[1]
-        self.conn.run(f"docker stop {container}")
+        selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
+        result = self.conn.run(f"docker stop {selected_container}")
+        self.container_list.addItem(result.stdout)
+        self.processing_message.setVisible(False)
 
     def restart_container(self):
+        self.processing_message.setVisible(True)
         container_number = self.container_input.text()
-        container = self.container_list.item(int(container_number) - 1).text().split()[1]
-        self.conn.run(f"docker restart {container}")
+        selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
+        result = self.conn.run(f"docker restart {selected_container}")
+        self.container_list.addItem(result.stdout)
+        self.processing_message.setVisible(False)
 
     def logs_container(self):
+        self.processing_message.setVisible(True)
         container_number = self.container_input.text()
-        container = self.container_list.item(int(container_number) - 1).text().split()[1]
-        log_file = container + ".txt"
-        result = self.conn.run(f"docker logs {container}")
-        with open(log_file, "w") as file:
-            file.write(result.stdout)
+        selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
+        result = self.conn.run(f"docker logs {selected_container}")
+        self.container_list.addItem(result.stdout)
+        self.processing_message.setVisible(False)
+
+    def save_logs(self):
+        container_number = self.container_input.text()
+        try:
+            selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
+            result = self.conn.run(f"docker logs {selected_container}")
+            with open(f"{selected_container}.txt", "w") as f:
+                f.write(result.stdout)
+            self.container_list.addItem(f"Logs saved as {selected_container}.txt")
+        except Exception as e:
+            self.container_list.addItem(str(e))
+
 
     def closeEvent(self, event):
         self.conn.close()
