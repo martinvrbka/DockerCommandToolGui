@@ -34,24 +34,29 @@ class DockerGUIApp(QMainWindow):
         self.container_input.setEnabled(False)  # disable input field until connection is established
         layout.addWidget(self.container_input)
 
+        self.confirm_button = QPushButton("Confirm")
+        self.confirm_button.clicked.connect(self.enable_container_buttons)
+        self.confirm_button.setEnabled(False) # disable button until container number is entered
+        layout.addWidget(self.confirm_button)
+
         self.start_button = QPushButton("Start")
         self.start_button.clicked.connect(self.start_container)
-        self.start_button.setEnabled(False)  # disable button until container number is entered
+        self.start_button.setEnabled(False)  # disable button until container number is confirmed
         layout.addWidget(self.start_button)
 
         self.stop_button = QPushButton("Stop")
         self.stop_button.clicked.connect(self.stop_container)
-        self.stop_button.setEnabled(False)  # disable button until container number is entered
+        self.stop_button.setEnabled(False)  # disable button until container number is confirmed
         layout.addWidget(self.stop_button)
 
         self.restart_button = QPushButton("Restart")
         self.restart_button.clicked.connect(self.restart_container)
-        self.restart_button.setEnabled(False)  # disable button until container number is entered
+        self.restart_button.setEnabled(False)  # disable button until container number is confirmed
         layout.addWidget(self.restart_button)
 
         self.logs_button = QPushButton("Logs")
         self.logs_button.clicked.connect(self.logs_container)
-        self.logs_button.setEnabled(False)  # disable button until container number is entered
+        self.logs_button.setEnabled(False)  # disable button until container number is confirmed
         layout.addWidget(self.logs_button)
 
         self.container_list = QListWidget()
@@ -69,48 +74,58 @@ class DockerGUIApp(QMainWindow):
         self.conn = Connection(host=address, user=username, connect_kwargs={"password": password})
         self.conn.run("")
 
-# Run the "docker ps" command to list available containers
-        result = self.conn.run("docker ps")
-        # Split the output by newline and remove the first and last element
-        container_list = result.stdout.split("\n")[1:-1]
+        # Run the "docker ps" command to list available containers
+        result = self.conn.run("docker ps --format '{{.ID}} {{.Names}}'")
+        # Split the output by newline and remove the last element
+        container_list = result.stdout.split("\n")[:-1]
 
-        # Clear the container list widget and add the containers
+        # Clear the container list widget and add the containers with number
         self.container_list.clear()
-
-        for container in container_list:
-            self.container_list.addItem(container)
+        for i, container in enumerate(container_list):
+            self.container_list.addItem(f"{i+1}. {container}")
 
         self.container_input.setEnabled(True)  # enable container input field
-        self.container_input.textChanged.connect(self.enable_container_buttons)
+        self.container_input.textChanged.connect(self.enable_confirm_button)
 
-    def enable_container_buttons(self):
-        # check if container number is entered in the input field
+    def enable_confirm_button(self):
         if self.container_input.text().strip() != "":
-            self.start_button.setEnabled(True)
-            self.stop_button.setEnabled(True)
-            self.restart_button.setEnabled(True)
-            self.logs_button.setEnabled(True)
+            self.confirm_button.setEnabled(True)
         else:
+            self.confirm_button.setEnabled(False)
             self.start_button.setEnabled(False)
             self.stop_button.setEnabled(False)
             self.restart_button.setEnabled(False)
             self.logs_button.setEnabled(False)
 
+    def enable_container_buttons(self):
+        self.start_button.setEnabled(True)
+        self.stop_button.setEnabled(True)
+        self.restart_button.setEnabled(True)
+        self.logs_button.setEnabled(True)
+
     def start_container(self):
-        container = self.container_input.text()
+        container_number = self.container_input.text()
+        container = self.container_list.item(int(container_number) - 1).text().split()[1]
         self.conn.run(f"docker start {container}")
 
+
     def stop_container(self):
-        container = self.container_input.text()
+        container_number = self.container_input.text()
+        container = self.container_list.item(int(container_number) - 1).text().split()[1]
         self.conn.run(f"docker stop {container}")
 
     def restart_container(self):
-        container = self.container_input.text()
+        container_number = self.container_input.text()
+        container = self.container_list.item(int(container_number) - 1).text().split()[1]
         self.conn.run(f"docker restart {container}")
 
     def logs_container(self):
-        container = self.container_input.text()
-        self.conn.run(f"docker logs {container}")
+        container_number = self.container_input.text()
+        container = self.container_list.item(int(container_number) - 1).text().split()[1]
+        log_file = container + ".txt"
+        result = self.conn.run(f"docker logs {container}")
+        with open(log_file, "w") as file:
+            file.write(result.stdout)
 
     def closeEvent(self, event):
         self.conn.close()
@@ -121,4 +136,3 @@ if __name__ == "__main__":
     window = DockerGUIApp()
     window.show()
     sys.exit(app.exec_())
-
