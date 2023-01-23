@@ -1,11 +1,15 @@
 from fabric import Connection
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QListWidget, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QListWidget, QVBoxLayout, QWidget
 import sys
 
 class DockerGUIApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Docker GUI")
+
+        # Create a central widget and set it
+        central_widget = QWidget(self)
+        self.setCentralWidget(central_widget)
 
         layout = QVBoxLayout()
 
@@ -33,7 +37,8 @@ class DockerGUIApp(QMainWindow):
         self.container_list = QListWidget()
         layout.addWidget(self.container_list)
 
-        self.setLayout(layout)
+        # Add the layout to the central widget
+        central_widget.setLayout(layout)
 
     def connect_to_multidocker(self):
         address = self.address_input.text()
@@ -83,6 +88,7 @@ class DockerGUIApp(QMainWindow):
 
     def closeEvent(self, event):
         self.conn.close()
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
