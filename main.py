@@ -1,6 +1,7 @@
 from fabric import Connection
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QListWidget, QVBoxLayout, QWidget, QLabel
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QListWidget, QVBoxLayout, QWidget, QLabel, QFileDialog
 import sys
+import os
 
 
 class DockerGUIApp(QMainWindow):
@@ -61,6 +62,11 @@ class DockerGUIApp(QMainWindow):
         self.logs_button.setEnabled(False)  # disable button until container number is confirmed
         layout.addWidget(self.logs_button)
 
+        self.save_logs_button = QPushButton("Save Logs")
+        self.save_logs_button.clicked.connect(self.save_logs)
+        self.save_logs_button.setEnabled(False)  # disable button until logs are retrieved
+        layout.addWidget(self.save_logs_button)
+
         self.container_list = QListWidget()
         layout.addWidget(self.container_list)
 
@@ -97,12 +103,14 @@ class DockerGUIApp(QMainWindow):
 
             self.container_input.setEnabled(True)  # enable container input field
             self.container_input.textChanged.connect(self.enable_confirm_button)
+            self.container_input.setEnabled(True)  # enable container input field
+            self.container_input.textChanged.connect(self.enable_confirm_button)
+            self.confirm_button.setEnabled(True)  # enable confirm button
 
         except ValueError as e:
             self.container_list.addItem(str(e))
         except Exception as e:
             self.container_list.addItem(str(e))
-
 
     def confirm_container(self):
         container_number = self.container_input.text()
@@ -147,24 +155,34 @@ class DockerGUIApp(QMainWindow):
         self.processing_message.setVisible(True)
         container_number = self.container_input.text()
         selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
-        result = self.conn.run(f"docker stop {selected_container}")
-        self.container_list.addItem(result.stdout)
+        try:
+            result = self.conn.run(f"docker stop {selected_container}")
+            self.container_list.addItem(result.stdout)
+        except Exception as e:
+            self.container_list.addItem(str(e))
         self.processing_message.setVisible(False)
 
     def restart_container(self):
         self.processing_message.setVisible(True)
         container_number = self.container_input.text()
         selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
-        result = self.conn.run(f"docker restart {selected_container}")
-        self.container_list.addItem(result.stdout)
+        try:
+            result = self.conn.run(f"docker restart {selected_container}")
+            self.container_list.addItem(result.stdout)
+        except Exception as e:
+            self.container_list.addItem(str(e))
         self.processing_message.setVisible(False)
 
     def logs_container(self):
         self.processing_message.setVisible(True)
         container_number = self.container_input.text()
         selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
-        result = self.conn.run(f"docker logs {selected_container}")
-        self.container_list.addItem(result.stdout)
+        try:
+            result = self.conn.run(f"docker logs {selected_container}")
+            self.container_list.addItem(result.stdout)
+            self.save_logs_button.setEnabled(True)  # enable save logs button
+        except Exception as e:
+            self.container_list.addItem(str(e))
         self.processing_message.setVisible(False)
 
     def save_logs(self):
@@ -172,9 +190,12 @@ class DockerGUIApp(QMainWindow):
         try:
             selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
             result = self.conn.run(f"docker logs {selected_container}")
-            with open(f"{selected_container}.txt", "w") as f:
+            filename = f"{selected_container}.txt"
+            with open(filename, "w") as f:
                 f.write(result.stdout)
-            self.container_list.addItem(f"Logs saved as {selected_container}.txt")
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            os.rename(os.path.join(script_dir, filename), os.path.join(script_dir, "logs", filename))
+            self.container_list.addItem(f"Logs saved as {filename}")
         except Exception as e:
             self.container_list.addItem(str(e))
 
