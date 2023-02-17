@@ -62,11 +62,6 @@ class DockerGUIApp(QMainWindow):
         self.logs_button.setEnabled(False)  # disable button until container number is confirmed
         layout.addWidget(self.logs_button)
 
-        self.save_logs_button = QPushButton("Save Logs")
-        self.save_logs_button.clicked.connect(self.save_logs)
-        self.save_logs_button.setEnabled(False)  # disable button until logs are retrieved
-        layout.addWidget(self.save_logs_button)
-
         self.container_list = QListWidget()
         layout.addWidget(self.container_list)
 
@@ -178,27 +173,19 @@ class DockerGUIApp(QMainWindow):
         container_number = self.container_input.text()
         selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
         try:
-            result = self.conn.run(f"docker logs {selected_container}")
-            self.container_list.addItem(result.stdout)
-            self.save_logs_button.setEnabled(True)  # enable save logs button
-        except Exception as e:
-            self.container_list.addItem(str(e))
-        self.processing_message.setVisible(False)
-
-    def save_logs(self):
-        container_number = self.container_input.text()
-        try:
-            selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
-            result = self.conn.run(f"docker logs {selected_container}")
             filename = f"{selected_container}.txt"
             with open(filename, "w") as f:
-                f.write(result.stdout)
+                with self.conn.stream(f"docker logs {selected_container}", pty=False, shell=False) as stdout, open(
+                        os.devnull, "w") as devnull:
+                    for line in stdout:
+                        f.write(line)
+                        f.flush()
             script_dir = os.path.dirname(os.path.abspath(__file__))
             os.rename(os.path.join(script_dir, filename), os.path.join(script_dir, "logs", filename))
             self.container_list.addItem(f"Logs saved as {filename}")
         except Exception as e:
             self.container_list.addItem(str(e))
-
+        self.processing_message.setVisible(False)
 
     def closeEvent(self, event):
         self.conn.close()
