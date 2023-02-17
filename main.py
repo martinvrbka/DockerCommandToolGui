@@ -38,27 +38,27 @@ class DockerGUIApp(QMainWindow):
         self.container_input.setEnabled(False)  # disable input field until connection is established
         layout.addWidget(self.container_input)
 
-        self.confirm_button = QPushButton("Confirm")
+        self.confirm_button = QPushButton("Confirm container number")
         self.confirm_button.clicked.connect(self.enable_container_buttons)
         self.confirm_button.setEnabled(False)  # disable button until container number is entered
         layout.addWidget(self.confirm_button)
 
-        self.start_button = QPushButton("Start")
+        self.start_button = QPushButton("Start selected container")
         self.start_button.clicked.connect(self.start_container)
         self.start_button.setEnabled(False)  # disable button until container number is confirmed
         layout.addWidget(self.start_button)
 
-        self.stop_button = QPushButton("Stop")
+        self.stop_button = QPushButton("Stop selected container")
         self.stop_button.clicked.connect(self.stop_container)
         self.stop_button.setEnabled(False)  # disable button until container number is confirmed
         layout.addWidget(self.stop_button)
 
-        self.restart_button = QPushButton("Restart")
+        self.restart_button = QPushButton("Restart selected container")
         self.restart_button.clicked.connect(self.restart_container)
         self.restart_button.setEnabled(False)  # disable button until container number is confirmed
         layout.addWidget(self.restart_button)
 
-        self.logs_button = QPushButton("Logs")
+        self.logs_button = QPushButton("Retrieve logs from selected container")
         self.logs_button.clicked.connect(self.logs_container)
         self.logs_button.setEnabled(False)  # disable button until container number is confirmed
         layout.addWidget(self.logs_button)
