@@ -1,4 +1,5 @@
 from fabric import Connection
+import paramiko
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLineEdit, QPushButton, QListWidget, QVBoxLayout, QWidget, QLabel, QFileDialog
 import sys
 import os
@@ -174,17 +175,34 @@ class DockerGUIApp(QMainWindow):
         selected_container = self.container_list.item(int(container_number) - 1).text().split()[-1]
         try:
             filename = f"{selected_container}.txt"
-            with open(filename, "w") as f:
-                with self.conn.stream(f"docker logs {selected_container}", pty=False, shell=False) as stdout, open(
-                        os.devnull, "w") as devnull:
-                    for line in stdout:
-                        f.write(line)
-                        f.flush()
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            os.rename(os.path.join(script_dir, filename), os.path.join(script_dir, "logs", filename))
+            log_dir = os.path.join(script_dir, "logs")
+            local_log_path = os.path.join(log_dir, filename)
+            address = self.address_input.text()
+            username = self.username_input.text()
+            password = self.password_input.text()
+
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(address, username=username, password=password)
+
+            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(f"docker logs {selected_container}")
+            result = ssh_stdout.read()
+
+            # Create the log directory if it does not exist
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+
+            # Create or replace the log file
+            with open(local_log_path, 'wb') as f:
+                f.write(result)
+
             self.container_list.addItem(f"Logs saved as {filename}")
         except Exception as e:
             self.container_list.addItem(str(e))
+        finally:
+            ssh.close()
+
         self.processing_message.setVisible(False)
 
     def closeEvent(self, event):
